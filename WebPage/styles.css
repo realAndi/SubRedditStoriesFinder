@@ -1,0 +1,142 @@
+body {
+  background-color: rgb(135, 50, 50);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  flex-direction: column;
+  font-family:  Helvetica;
+
+}
+
+.container {
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding: 30px;
+}
+.post-container{
+  display: flex;
+  flex-direction: row;
+}
+
+.mini-rectangle {
+  background-color: white;
+  display: flex;
+  justify-content: left;
+  flex-direction: row-reverse;
+  padding: 0px 2px;
+  width: auto;
+  position: absolute;
+  top: 0;
+  box-shadow: 0px 10px 15px rgba(0, 0, 0, 0.2);
+
+}
+
+.post-awards-and-location {
+  padding: 5px 0px;
+  display: flex;
+  flex-direction: row;
+  font-size: 31px;
+  align-items: center;
+  color: rgb(166, 166, 166);
+}
+
+.post-awards{
+  display: flex;
+  padding: 0 15px;
+  flex-direction: row;
+}
+
+.post-awards img {
+  padding: 0 3px;
+}
+
+.mini-text {
+  font-size: 30px;
+  color: rgb(68, 68, 68);
+  padding: 0;
+}
+
+.rectangle {
+  background-color: white;
+  width: 900px;
+  display: flex;
+  justify-content: space-between;
+  flex-direction: row-reverse;
+  padding: 0px 5px;
+}
+
+.rectangle:first-child {
+  flex-direction: column;
+  box-shadow: 0px 10px 15px rgba(0, 0, 0, 0.2);
+  z-index: 2;
+}
+
+.vote-rectangle {
+  background-color: white;
+  display: flex;
+  justify-content: space-between;
+  flex-direction: row-reverse;
+  padding: 15px;
+
+}
+
+.rectangle-text {
+  text-align: left;
+  font-size: 36px;
+  color: rgb(29, 29, 29);
+  margin-top: 0;
+}
+
+
+.vote-system {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.vote-button {
+  cursor: pointer;
+}
+
+.vote-count {
+  font-size: 36px;
+  padding: 5px 0;
+  color: black;
+}
+
+.post-details {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 5px 5px 0px;
+  font-size: 34px;
+
+}
+
+.post-details span {
+  display: flex;
+  align-items: center;
+  font-size: 32px;
+  color: rgb(207, 207, 207);
+}
+
+.post-details span i {
+  margin-left: 5px;
+  color: rgb(207, 207, 207);
+  font-size: 32px;
+}
+
+.post-details .user {
+  color:rgb(193, 193, 193);
+
+}
+.post-details .poster {
+  color:rgb(71, 96, 129);
+}
