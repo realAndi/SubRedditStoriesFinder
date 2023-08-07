@@ -1,0 +1,9 @@
+moviepy
+yt-dlp
+praw
+requests
+jinja2
+python-dotenv
+nltk
+eyed3
+Pillow==9.5.0

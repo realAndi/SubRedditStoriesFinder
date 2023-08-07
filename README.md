@@ -23,7 +23,7 @@ git clone https://github.com/realAndi/SubRedditStoriesFinder/
 
 Install the required Python dependencies.
 ```
-pip install praw jinja2 python-dotenv
+pip install -r requirements.txt
 ```
 
 Install Node.js if it is not already installed. 
