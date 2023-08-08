@@ -12,6 +12,7 @@ import nltk
 nltk.download('punkt')
 from nltk.tokenize import sent_tokenize
 import eyed3
+from makeVideo import make_video
 
 
 load_dotenv()
@@ -89,7 +90,7 @@ body {
 .post-container{
   display: flex;
   flex-direction: row;
-  max-width: 900px;                          
+  max-width: 686px;                          
 }
 
 .mini-rectangle {
@@ -262,7 +263,7 @@ def getPosts():
   upvote_threshold = int(input("Enter an upvote threshold: "))
 
   # Retrieve the posts
-  posts = get_posts(subreddit_name, sort_by, 500, upvote_threshold)
+  posts = get_posts(subreddit_name, sort_by, 100, upvote_threshold)
 
   # Create the output directory if it doesn't exist
   output_directory = Path('output')
@@ -461,7 +462,7 @@ def makeVideo():
     formatted_duration = seconds_to_minutes(total_duration)
     print(f"Total duration of all audio clips (with gaps): {formatted_duration}")
 
-    subprocess.run(["python", "makeVideo.py", str(selected_post_folder), str(total_duration)], check=True)
+    processed_video = make_video(str(selected_post_folder), str(total_duration))
 
 
 
