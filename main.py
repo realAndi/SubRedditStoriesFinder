@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 from grabAudio import get_streamelements_speech
 from selectDir import select_directory, select_audio_directory
 import nltk
-nltk.download('punkt')
 from nltk.tokenize import sent_tokenize
 import eyed3
 from makeVideo import make_video
@@ -406,7 +405,8 @@ def audioGen():
 
     # Replace newlines with periods
     content = content.replace('\n', '. ')
-    
+    nltk.download('punkt')
+
     # Tokenize the content into sentences
     sentences = sent_tokenize(content)
     generated_audio_files = []
@@ -469,7 +469,6 @@ def makeVideo():
 def main():
   # Display the header
   display_header()
-
   while True:
       # Display the options menu
       print("\nPlease select an option:")

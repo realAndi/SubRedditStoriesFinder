@@ -7,3 +7,5 @@ python-dotenv
 nltk
 eyed3
 Pillow==9.5.0
+numpy
+openai-whisper
