@@ -44,9 +44,11 @@ def overlay_captions_on_video(video, captions):
 
         last_end_time = caption.end
 
-    # Append any remaining video after the last caption
-    if last_end_time < video.duration:
+    if last_end_time > 99.65:
+        last_end_time = 99.64
+    if last_end_time < (video.duration):
         segments.append(video.subclip(last_end_time))
+
 
     # Concatenate all segments
     result = concatenate_videoclips(segments)
@@ -206,6 +208,8 @@ def make_video(selected_folder, total_duration):
     print("Rendering! We're almost done!")
     # Save the video with captions
     output_path = Path(selected_folder) / "final.mp4"
+    # The tiktok speed
+    final_video = final_video.fx(vfx.speedx, 1.03)
     final_video.write_videofile(str(output_path))
 
 
