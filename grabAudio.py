@@ -1,8 +1,7 @@
 import requests
 import os
 import re
-
-
+import time
 
 def sanitize_filename(text):
     # Remove invalid characters
@@ -14,16 +13,25 @@ def sanitize_filename(text):
 def get_streamelements_speech(text, voice, output_path):
     BASE_URL = "https://api.streamelements.com/kappa/v2/speech"
     params = {"voice": voice, "text": text}
-    
-    response = requests.get(BASE_URL, params=params)
-    response.raise_for_status()
 
-    safe_text = "".join(ch for ch in text[:10] if ch.isalnum())
-    audio_filename = os.path.join(output_path, f"{voice}_{safe_text}.mp3")  
+    MAX_RETRIES = 5  # You can adjust this number based on your needs
+    for _ in range(MAX_RETRIES):
+        try:
+            response = requests.get(BASE_URL, params=params)
+            response.raise_for_status()
 
-    with open(audio_filename, 'wb') as audio_file:
-        audio_file.write(response.content)
+            safe_text = "".join(ch for ch in text[:10] if ch.isalnum())
+            audio_filename = os.path.join(output_path, f"{voice}_{safe_text}.mp3")
 
-    return audio_filename
+            with open(audio_filename, 'wb') as audio_file:
+                audio_file.write(response.content)
 
+            return audio_filename
 
+        except requests.exceptions.HTTPError as e:
+            # Check if the error status code corresponds to "Too Many Requests"
+            if response.status_code == 429:
+                time.sleep(30)  # wait for 30 seconds before retrying
+            else:
+                raise e  # If it's a different HTTP error, raise it immediately
+    raise Exception("Max retries reached. Exiting.")

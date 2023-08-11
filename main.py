@@ -32,7 +32,9 @@ def get_posts(subreddit_name, sort_by, limit, score):
     elif sort_by.lower() == "rising":
         posts = subreddit.rising(limit=limit)
     elif sort_by.lower() == "top":
-        posts = subreddit.top(limit=limit)
+        print("For 'Top' posts, select time period: 'all', 'year', 'month', 'week', 'day', 'hour'")
+        time_period = input("Enter time period: ")
+        posts = subreddit.top(time_filter=time_period, limit=limit)
     else:
         print("Invalid sorting option.")
         return
@@ -301,12 +303,17 @@ def getPosts():
 
       # write post content to a text file
       with open(post_directory / 'post_content.txt', 'w') as f:
-          # Add the post title as the first line
-          f.write(post['title'] + "\n")
-          
-          # Add the post content, with each line indented by 4 spaces
-          indented_content = "\n".join(["    " + line for line in post['post_content'].splitlines()])
-          f.write(indented_content)
+        # Check if post['title'] ends with a period, question mark, or exclamation mark
+        title = post['title']
+        if title[-1] not in ['.', '?', '!']:
+            title += '.'
+        
+        # Remove all line breaks in post_content
+        post_content = post['post_content'].replace('\n', ' ').replace('\r', '')
+        
+        # Add the post title and content to the file
+        f.write(title + ' ' + post_content)
+
 
 
       # run the Node.js script

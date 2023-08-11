@@ -9,21 +9,41 @@ import random
 import numpy as np
 from whisper_transcription import transcribe_with_whisper
 
-def generate_captions_from_transcription(transcription_dict):    
+def break_text_into_phrases(text, max_words=6):
+    words = text.split()
+    phrases = []
+    
+    for i in range(0, len(words), max_words):
+        phrases.append(' '.join(words[i:i+max_words]))
+    
+    return phrases
+
+def generate_captions_from_transcription(transcription_dict, max_words=6):    
     captions = []
     for segment in transcription_dict:
         start_time = segment['start']
         end_time = segment['end']
         text = segment['text']
+        
+        # Break the text into smaller phrases
+        phrases = break_text_into_phrases(text, max_words)
+        phrase_duration = (end_time - start_time) / len(phrases)
 
-        text_clip = TextClip(text, fontsize=56, color='white', size=(int(1080*9/16) - 200, 1080),
-                    font="Futura-PT-Bold", method='caption', stroke_color='black', 
-                    stroke_width=2, align="center", kerning=-1, transparent=True)
-        text_clip = text_clip.set_pos(('center')).set_start(start_time).set_end(end_time)
+        for idx, phrase in enumerate(phrases):
+            phrase_start_time = start_time + idx * phrase_duration
+            phrase_end_time = phrase_start_time + phrase_duration
 
-        captions.append(text_clip)
+            text_clip = TextClip(phrase, fontsize=56, color='white', 
+                                 size=(int(1080*9/16) - 200, 1080),
+                                 font="Futura-PT-Bold", method='caption', 
+                                 stroke_color='black', stroke_width=2, 
+                                 align="center", kerning=-1, transparent=True)
+            
+            text_clip = text_clip.set_pos(('center')).set_start(phrase_start_time).set_end(phrase_end_time)
+            captions.append(text_clip)
 
     return captions
+
 
 
 def overlay_captions_on_video(video, captions):
@@ -144,7 +164,7 @@ def make_video(selected_folder, total_duration):
     print("Video Loaded")
     # Calculate start time and end time for the subclip
     start_time = calculate_start_time(video, total_duration)
-    end_time = start_time + total_duration + 10  # 10 seconds extra as you mentioned
+    end_time = start_time + total_duration + 2 # Safety measures
     
     print("Calculated Title Card duration")
 
