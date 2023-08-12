@@ -54,13 +54,19 @@ def overlay_captions_on_video(video, captions):
     for caption in captions:
         # Append a portion of the video without captions
         if last_end_time < caption.start:
-            segments.append(video.subclip(last_end_time, caption.start))
+            if last_end_time < video.duration and caption.start < video.duration:
+                segments.append(video.subclip(last_end_time, min(caption.start, video.duration)))
 
+        # Check if the start and end times are within the video's duration
+        clip_start = min(caption.start, video.duration)
+        clip_end = min(caption.end, video.duration)
+        
         # Append a portion of the video with the caption overlay
-        segments.append(CompositeVideoClip([
-            video.subclip(caption.start, caption.end),
-            caption.set_position(('center', 'bottom')).set_start(0)
-        ]))
+        if clip_start < video.duration:
+            segments.append(CompositeVideoClip([
+                video.subclip(clip_start, clip_end),
+                caption.set_position(('center', 'bottom')).set_start(0)
+            ]))
 
         last_end_time = caption.end
 
@@ -69,11 +75,11 @@ def overlay_captions_on_video(video, captions):
     if last_end_time < (video.duration):
         segments.append(video.subclip(last_end_time))
 
-
     # Concatenate all segments
     result = concatenate_videoclips(segments)
 
     return result
+
 
 
 

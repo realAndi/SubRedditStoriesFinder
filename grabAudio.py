@@ -2,6 +2,7 @@ import requests
 import os
 import re
 import time
+import boto3
 
 def sanitize_filename(text):
     # Remove invalid characters
@@ -35,3 +36,21 @@ def get_streamelements_speech(text, voice, output_path):
             else:
                 raise e  # If it's a different HTTP error, raise it immediately
     raise Exception("Max retries reached. Exiting.")
+
+def get_amazon_polly_speech(text, voice, output_path, engine='neural'):
+    polly_client = boto3.client('polly', region_name='us-east-1')
+    
+    response = polly_client.synthesize_speech(
+        Text=text,
+        OutputFormat='mp3',
+        VoiceId=voice,
+        Engine=engine
+    )
+    
+    safe_text = sanitize_filename(text)
+    audio_filename = os.path.join(output_path, f"{voice}_{safe_text}.mp3")
+
+    with open(audio_filename, 'wb') as audio_file:
+        audio_file.write(response['AudioStream'].read())
+    
+    return audio_filename
