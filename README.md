@@ -8,6 +8,7 @@ This script is designed to browse Reddit subreddits based on user input, gather 
     Node.js
     Reddit Account
     ffmpeg
+    AWS CLI (Optional if you want to use the Neural TTS, which sounds better)
 
 ### TODO:
 ```
@@ -68,6 +69,8 @@ Note
 Saving screenshots is a Node.js function. Yes its a backwards solution, but I believe it's fun to do it like this. If you want to customize the layout, play with the folder "WebPage" and see the title card you can make!
 
 ## Step 2
+
+Just to note, by default, in `main.py`, inside the `audioGen()` function, by default `get_amazon_polly_speech()` is selected. If you want to use the free TTS service, comment out `get_amazon_polly_speech()` and uncomment `get_streamelements_speech()`
 
 After scraping the desired subreddit, run `main.py` again and select the 2nd option. In the 2nd option, you will be prompted to select a voice type, male or female. Depending on the content given, you should choose accordingly. The script will remind you to manually look over the `post_content.txt` to make sure there isn't anything that can potentially disrupt the TTS. Things such as special characters, extra periods, typo's. Once that's done, you will get a large output of audio files in the subfolders. Please don't delete them.
 
