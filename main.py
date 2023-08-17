@@ -12,7 +12,7 @@ import nltk
 from nltk.tokenize import sent_tokenize
 import eyed3
 from makeVideo import make_video
-
+import shutil
 
 load_dotenv()
 
@@ -475,33 +475,57 @@ def makeVideo():
 
     processed_video = make_video(str(selected_post_folder), str(total_duration))
 
-
-
 def main():
-  # Display the header
-  display_header()
-  while True:
-      # Display the options menu
-      print("\nPlease select an option:")
-      print("1. Grab and scrape posts from Reddit, (Generates Title Card and Text file for the post)")
-      print("2. Generate audio TTS for posts")
-      print("3. Make Video")
-      print("4. Exit")
-      
-      # Get user's choice
-      choice = input("Enter your option (1/2/3/4): ")
+    # Display the header
+    display_header()
 
-      if choice == "1":
-          getPosts()
-      elif choice == "2":
-          audioGen()
-      elif choice == "3":
-          makeVideo()
-      elif choice == "4":
-          print("Exiting.")
-          break
-      else:
-          print("Invalid option. Please try again.")
+    while True:
+        # Display the options menu
+        print("\nPlease select an option:")
+        print("1. Grab and scrape posts from Reddit, (Generates Title Card and Text file for the post)")
+        print("2. Generate audio TTS for posts")
+        print("3. Make Video")
+        print("4. Clear output folder")
+        print("5. Exit")
+
+        # Get user's choice
+        choice = input("Enter your option (1/2/3/4/5): ")
+
+        if choice == "1":
+            getPosts()
+        elif choice == "2":
+            audioGen()
+        elif choice == "3":
+            makeVideo()
+        elif choice == "4":
+            clearOutputFolder()
+        elif choice == "5":
+            print("Exiting.")
+            break
+        else:
+            print("Invalid option. Please try again.")
+
+
+def clearOutputFolder():
+    output_folder_path = './output'
+    confirmation = input("Are you sure you want to delete the output folder? \nDoing so will remove all made videos and saved posts.\nThis action is not undoable.\n(Y/N): ")
+    
+    if confirmation.lower() == 'y':
+        for filename in os.listdir(output_folder_path):
+            file_path = os.path.join(output_folder_path, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print('Failed to delete %s. Reason: %s' % (file_path, e))
+
+        print("Output folder cleared.")
+    else:
+        print("Action cancelled.")
+
+
 
 
 if __name__ == "__main__":
