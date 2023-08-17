@@ -14,6 +14,9 @@ def break_text_into_phrases(text, duration, max_words=6):
     phrases = []
     word_timings = duration / len(words)
     
+    # List of punctuation marks to account for
+    punctuation_breaks = [",", ";", ".", "!", "?", "-"]
+
     curr_words = []
     curr_time = 0
 
@@ -21,7 +24,12 @@ def break_text_into_phrases(text, duration, max_words=6):
         curr_time += word_timings
         curr_words.append(word)
         
-        if len(curr_words) == max_words or curr_time >= duration:
+        # Check for punctuation breaks
+        if any(punct in word for punct in punctuation_breaks):
+            phrases.append(' '.join(curr_words))
+            curr_words = []
+            curr_time = 0
+        elif len(curr_words) == max_words or curr_time >= duration:
             phrases.append(' '.join(curr_words))
             curr_words = []
             curr_time = 0
@@ -31,6 +39,7 @@ def break_text_into_phrases(text, duration, max_words=6):
         phrases.append(' '.join(curr_words))
 
     return phrases
+
 
 def generate_captions_from_transcription(transcription_dict, max_words=6):    
     captions = []
@@ -61,7 +70,7 @@ def generate_captions_from_transcription(transcription_dict, max_words=6):
 
 
 
-def overlay_captions_on_video(video, captions):
+def overlay_captions_on_video(video, captions, seconds_to_add=0):
     # Start from the beginning of the video
     last_end_time = 0
     segments = []
@@ -87,8 +96,11 @@ def overlay_captions_on_video(video, captions):
 
     if last_end_time > 99.65:
         last_end_time = 99.64
-    # if last_end_time < (video.duration):
-    #     segments.append(video.subclip(last_end_time))
+    
+    # Add the extra segment based on the seconds_to_add parameter
+    extended_end_time = min(last_end_time + seconds_to_add, video.duration)
+    if last_end_time < extended_end_time:
+        segments.append(video.subclip(last_end_time, extended_end_time))
 
     # Concatenate all segments
     result = concatenate_videoclips(segments)
@@ -223,11 +235,25 @@ def make_video(selected_folder, total_duration):
 
     print("Added Title Card")
 
-    # The part of the video without a title card (Maybe add subtitles here)
+    post_title_duration = total_duration - first_audio_duration
+
+    # The part of the video without a title card
+    video_without_title_for_remaining_end_time = first_audio_duration + post_title_duration
+
+    # Ensure the video has a minimum duration of 1 minute and 1 second
+    seconds_to_add = 0
+    min_duration = 61
+    if post_title_duration < min_duration:
+        seconds_to_add = min_duration - post_title_duration
+    
+    print("Adding " + str(seconds_to_add) + " to make up the minimum 1 minute mark.")
+
     video_without_title_for_remaining = (cropped_and_resized_video  
-        .subclip(first_audio_duration, cropped_and_resized_video.duration)
+        .subclip(first_audio_duration, video_without_title_for_remaining_end_time + seconds_to_add)
         .set_audio(concatenated_audio))
     
+
+    print("Total duration of video so far " + str(video_without_title_for_remaining.duration))
 
     # Save the video with that needs captions so we can transcribe
     audio_segment = video_without_title_for_remaining.audio
@@ -241,7 +267,7 @@ def make_video(selected_folder, total_duration):
     # Generate captions from the transcription
     captions = generate_captions_from_transcription(transcription)
 
-    video_with_captions = overlay_captions_on_video(video_without_title_for_remaining, captions)
+    video_with_captions = overlay_captions_on_video(video_without_title_for_remaining, captions, seconds_to_add)
 
     print("Merging videos")
     final_video = concatenate_videoclips([video_with_title_for_first_audio, video_with_captions])
