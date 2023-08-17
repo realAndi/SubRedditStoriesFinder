@@ -9,13 +9,27 @@ import random
 import numpy as np
 from whisper_transcription import transcribe_with_whisper
 
-def break_text_into_phrases(text, max_words=6):
+def break_text_into_phrases(text, duration, max_words=6):
     words = text.split()
     phrases = []
+    word_timings = duration / len(words)
     
-    for i in range(0, len(words), max_words):
-        phrases.append(' '.join(words[i:i+max_words]))
-    
+    curr_words = []
+    curr_time = 0
+
+    for word in words:
+        curr_time += word_timings
+        curr_words.append(word)
+        
+        if len(curr_words) == max_words or curr_time >= duration:
+            phrases.append(' '.join(curr_words))
+            curr_words = []
+            curr_time = 0
+
+    # If there are any remaining words, add them to phrases
+    if curr_words:
+        phrases.append(' '.join(curr_words))
+
     return phrases
 
 def generate_captions_from_transcription(transcription_dict, max_words=6):    
@@ -30,8 +44,9 @@ def generate_captions_from_transcription(transcription_dict, max_words=6):
         phrase_duration = (end_time - start_time) / len(phrases)
 
         for idx, phrase in enumerate(phrases):
-            phrase_start_time = start_time + idx * phrase_duration
-            phrase_end_time = phrase_start_time + phrase_duration
+            phrase_start_time = round(start_time + idx * phrase_duration, 3)
+            phrase_end_time = round(phrase_start_time + phrase_duration, 3)
+
 
             text_clip = TextClip(phrase, fontsize=56, color='white', 
                                  size=(int(1080*9/16) - 200, 1080),
@@ -72,8 +87,8 @@ def overlay_captions_on_video(video, captions):
 
     if last_end_time > 99.65:
         last_end_time = 99.64
-    if last_end_time < (video.duration):
-        segments.append(video.subclip(last_end_time))
+    # if last_end_time < (video.duration):
+    #     segments.append(video.subclip(last_end_time))
 
     # Concatenate all segments
     result = concatenate_videoclips(segments)
@@ -235,7 +250,6 @@ def make_video(selected_folder, total_duration):
     # Save the video with captions
     output_path = Path(selected_folder) / "final.mp4"
     # The tiktok speed
-    final_video = final_video.fx(vfx.speedx, 1.03)
     final_video.write_videofile(str(output_path))
 
 

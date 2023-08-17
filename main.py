@@ -422,9 +422,7 @@ def audioGen():
       # Use this if you have AWS CLI setup for a neural TTS
       audio_filename = get_amazon_polly_speech(sentence, voice, audio_folder)
       # Use this if you want the free standard TTS. It's good, but not the same as other typical reddit videos.
-    # audio_filename = get_streamelements_speech(sentence, voice, audio_folder)  
-
-
+      # audio_filename = get_streamelements_speech(sentence, voice, audio_folder)  
     
       # Move the audio file to the 'audio' directory and rename
       new_filename = audio_folder / f"{idx}_sentence.mp3"
