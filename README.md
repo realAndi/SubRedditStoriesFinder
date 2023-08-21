@@ -2,6 +2,9 @@
 
 This script is designed to browse Reddit subreddits based on user input, gather the top, hot, or rising posts (also based on user input), and create HTML templates for these posts. These HTML templates are then used to take screenshots for visualizing the post data.
 
+# Preview
+https://streamable.com/ultal6
+
 # Requirements
 
     Python 3.10 or above
