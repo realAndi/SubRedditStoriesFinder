@@ -38,7 +38,15 @@ def get_streamelements_speech(text, voice, output_path):
     raise Exception("Max retries reached. Exiting.")
 
 def get_amazon_polly_speech(text, voice, output_path, engine='neural'):
-    polly_client = boto3.client('polly', region_name='us-east-1')
+    aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
+    aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
+    
+    polly_client = boto3.client(
+        'polly',
+        region_name='us-east-1',
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key
+    )
     
     response = polly_client.synthesize_speech(
         Text=text,
