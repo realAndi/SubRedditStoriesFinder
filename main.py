@@ -13,8 +13,10 @@ from nltk.tokenize import sent_tokenize
 import eyed3
 from makeVideo import make_video
 import shutil
+from PIL import Image, ImageDraw, ImageFilter
 
 load_dotenv()
+useCaptions = True
 
 reddit = praw.Reddit(
     client_id=os.environ["REDDIT_CLIENT_ID"],
@@ -22,6 +24,36 @@ reddit = praw.Reddit(
     user_agent="script:PostFinder:v0.0.1 (by /u/Andi1up)",
 )
 
+def pathSelection(isAudio=False):
+  output_dir = Path("output")
+  current_dir = output_dir
+  # Initialize main and post folder selections as None
+  selected_main_folder = None
+  selected_post_folder = None
+  while True:
+      # Step 1: If no main folder is selected, show main folder options
+      if not selected_main_folder:
+          selection = select_directory(current_dir, is_subfolder=False)
+          if selection == "BACK":
+              print("Exiting.")
+              exit()
+          selected_main_folder = selection
+
+      # Step 2: If main folder is selected but post folder isn't, show post folder options
+      elif not selected_post_folder:
+          if isAudio:
+            selection = select_audio_directory(selected_main_folder, is_subfolder=True)
+          else:
+            selection = select_directory(selected_main_folder, is_subfolder=True)
+          
+          if selection == "BACK":
+              selected_main_folder = None
+              continue
+          selected_post_folder = selection
+
+      if selected_post_folder:
+          print(f"\nYou've selected: {selected_post_folder.name}")
+          return selected_post_folder
 
 
 def get_posts(subreddit_name, sort_by, limit, score):
@@ -42,7 +74,7 @@ def get_posts(subreddit_name, sort_by, limit, score):
     results = []
     for post in posts:
         if post.score > score:
-            awards = [award['icon_url'] for award in post.all_awardings]
+            awards = [award['icon_url'] for award in post.all_awardings][:5]
             results.append({
                 "title": post.title,
                 "vote_count": post.score,
@@ -58,6 +90,34 @@ def get_posts(subreddit_name, sort_by, limit, score):
 def format_count(count):
     return f"{count / 1000:.1f}k" if count >= 1000 else str(count)
 
+def add_rounded_corners_with_shadow(im, rad, shadow_offset=(10, 10), shadow_opacity=0.6, blur_radius=8):
+    # Add rounded corners first
+    circle = Image.new('L', (rad * 2, rad * 2), 0)
+    draw = ImageDraw.Draw(circle)
+    draw.ellipse((0, 0, rad * 2, rad * 2), fill=255)
+    alpha = Image.new('L', im.size, 255)
+    w, h = im.size
+    alpha.paste(circle.crop((0, 0, rad, rad)), (0, 0))
+    alpha.paste(circle.crop((0, rad, rad, rad * 2)), (0, h - rad))
+    alpha.paste(circle.crop((rad, 0, rad * 2, rad)), (w - rad, 0))
+    alpha.paste(circle.crop((rad, rad, rad * 2, rad * 2)), (w - rad, h - rad))
+    im.putalpha(alpha)
+
+    # Convert the image to RGBA for handling transparency
+    if im.mode != 'RGBA':
+        im = im.convert('RGBA')
+
+    # Generate shadow
+    shadow = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    shadow_alpha = im.split()[3]
+    shadow.paste((0, 0, 0, int(255 * shadow_opacity)), (0, 0), mask=shadow_alpha)
+    shadow = shadow.filter(ImageFilter.GaussianBlur(blur_radius))
+    shadow_offset_img = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    shadow_offset_img.paste(shadow, shadow_offset)
+
+    # Combine shadow and image
+    combined = Image.alpha_composite(shadow_offset_img, im)
+    return combined
 
 html_template = Template("""
 <!DOCTYPE html>
@@ -78,15 +138,14 @@ body {
   box-sizing: border-box;
   flex-direction: column;
   font-family:  Helvetica;
-
 }
-
 .container {
   min-height: 350px;
   display: flex;
   flex-direction: column;
   position: relative;
   padding: 30px;
+  max-width: 686px;  
 }
 .post-container{
   display: flex;
@@ -134,7 +193,7 @@ body {
 
 .rectangle {
   background-color: white;
-  width: 900px;
+  max-width: 686px;  
   display: flex;
   justify-content: space-between;
   flex-direction: row-reverse;
@@ -249,11 +308,11 @@ body {
 
 def display_header():
     print("""
-    ####################################
-    #                                  #
-    #    HQ Reddit TikTok Bot   v1.0   #
-    #                                  #
-    ####################################
+    #############################
+    #                           #
+    #    HQ Reddit TikTok Bot   #
+    #                           #
+    #############################
     """)
 
 
@@ -325,6 +384,12 @@ def getPosts():
       os.system(f'node imageScrape.js "{post_html_file.resolve()}"')
       print('--------------------------------------------------------------------------\n')
 
+      # Round the image
+      image_path = post_directory / "title_card.png"
+      image = Image.open(image_path)
+      image = add_rounded_corners_with_shadow(image, 15)  
+      image.save(post_directory / "title_card.png")
+
 
 # Get Audio length
 def get_audio_duration(filename):
@@ -351,33 +416,8 @@ def seconds_to_minutes(seconds):
     return f"{int(minutes)} minutes {int(seconds)} seconds"
 
 def audioGen():
-    output_dir = Path("output")
-    current_dir = output_dir
-
-    # Initialize main and post folder selections as None
-    selected_main_folder = None
-    selected_post_folder = None
-    while True:
-        # Step 1: If no main folder is selected, show main folder options
-        if not selected_main_folder:
-            selection = select_directory(current_dir, is_subfolder=False)
-            if selection == "BACK":
-                print("Exiting.")
-                exit()
-            selected_main_folder = selection
-
-        # Step 2: If main folder is selected but post folder isn't, show post folder options
-        elif not selected_post_folder:
-            selection = select_directory(selected_main_folder, is_subfolder=True)
-            if selection == "BACK":
-                selected_main_folder = None
-                continue
-            selected_post_folder = selection
-
-        if selected_post_folder:
-            print(f"\nYou've selected: {selected_post_folder.name}")
-            break
-
+    selected_post_folder = pathSelection()
+    print(selected_post_folder)
     # Prompt user to revise the post_content.txt
     print("\nBefore proceeding, please ensure that you've revised 'post_content.txt' to ensure the TTS is smooth.")
     print("Some general advice:")
@@ -437,34 +477,8 @@ def audioGen():
     print(f"Total duration of all audio clips (with gaps): {formatted_duration}")
 
 
-def makeVideo():
-    output_dir = Path("output")
-    current_dir = output_dir
-
-    # Initialize main and post folder selections as None
-    selected_main_folder = None
-    selected_post_folder = None
-    while True:
-        # Step 1: If no main folder is selected, show main folder options
-        if not selected_main_folder:
-            selection = select_audio_directory(current_dir, is_subfolder=False)
-            if selection == "BACK":
-                print("Exiting.")
-                exit()
-            selected_main_folder = selection
-
-        # Step 2: If main folder is selected but post folder isn't, show post folder options
-        elif not selected_post_folder:
-            selection = select_audio_directory(selected_main_folder, is_subfolder=True)
-            if selection == "BACK":
-                selected_main_folder = None
-                continue
-            selected_post_folder = selection
-
-        # If a post folder with audio is selected, proceed to the next steps
-        if selected_post_folder:
-            print(f"\nYou've selected: {selected_post_folder.name}")
-            break
+def makeVideo(useCaptions):
+    selected_post_folder = pathSelection(True)
 
     audio_folder = selected_post_folder / "audio"
     audio_files = list(audio_folder.glob("*.mp3"))
@@ -473,7 +487,7 @@ def makeVideo():
     formatted_duration = seconds_to_minutes(total_duration)
     print(f"Total duration of all audio clips (with gaps): {formatted_duration}")
 
-    processed_video = make_video(str(selected_post_folder), str(total_duration))
+    processed_video = make_video(str(selected_post_folder), str(total_duration), useCaptions)
 
 def main():
     # Display the header
@@ -486,20 +500,23 @@ def main():
         print("2. Generate audio TTS for posts")
         print("3. Make Video")
         print("4. Clear output folder")
-        print("5. Exit")
+        print("5. Experimental Options")
+        print("6. Exit")
 
         # Get user's choice
-        choice = input("Enter your option (1/2/3/4/5): ")
+        choice = input("Enter your option (1/2/3/4/5/6): ")
 
         if choice == "1":
             getPosts()
         elif choice == "2":
             audioGen()
         elif choice == "3":
-            makeVideo()
+            makeVideo(useCaptions)
         elif choice == "4":
             clearOutputFolder()
         elif choice == "5":
+            experimentalOptions()
+        elif choice == "6":
             print("Exiting.")
             break
         else:
@@ -524,6 +541,98 @@ def clearOutputFolder():
         print("Output folder cleared.")
     else:
         print("Action cancelled.")
+
+
+def experimentalOptions():
+    global useCaptions
+    while True:
+        # Display the options
+        print("Please select an option")
+        print("1. Edit Post Title Card")
+        if useCaptions:
+            print("2. Disable Captions (For people who want to use CapCut for captions.)")
+        else:
+            print("2. Enable Captions (Captions are still buggy.)")
+        print("3. Exit")
+
+        # Get user's choice
+        choice = input("Enter your option (1/2/3): ")
+
+        if choice == "1":
+            editTitleCard()
+        elif choice == "2":
+            useCaptions = not useCaptions  # Toggle the value
+            if useCaptions:
+                print("Captions enabled.")
+            else:
+                print("Captions disabled.")
+        elif choice == "3":
+            print("Exiting.")
+            break
+        else:
+            print("Invalid choice. Please select 1, 2, or 3.")
+
+
+def editTitleCard():
+    selected_post_folder = pathSelection()
+    edit_contents_of_selected_folder(selected_post_folder)
+    
+
+def edit_contents_of_selected_folder(selected_post_folder):
+    # File paths
+    html_path = selected_post_folder / "post.html"
+    txt_path = selected_post_folder / "post_content.txt"
+    
+    # Step 1: Edit post.html using string operations
+    new_text = ""
+    with open(html_path, 'r', encoding='utf-8') as file:
+        content = file.read()
+
+        # Check if the 'rectangle-text' class exists in the file
+        start_tag = '<h1 class="rectangle-text">'
+        end_tag = '</h1>'
+        
+        # Locate the start and end of the content for the class
+        start_index = content.find(start_tag)
+        end_index = content.find(end_tag, start_index)
+        
+        if start_index != -1 and end_index != -1:
+            # Extract the current content
+            current_text = content[start_index+len(start_tag):end_index]
+            
+            # Get user input to replace the content
+            new_text = input("Enter the new text for the title card: ")
+            
+            # Replace the content in the whole HTML
+            content = content.replace(current_text, new_text, 1) # replace only the first occurrence
+
+            # Write the updated content back to post.html
+            with open(html_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+    
+    # Step 2: Edit post_content.txt
+    with open(txt_path, 'r', encoding='utf-8') as file:
+        txt_content = file.readlines()
+        
+    # Replace the first sentence (assuming first line is the first sentence)
+    txt_content[0] = new_text + '\n'
+    
+    with open(txt_path, 'w', encoding='utf-8') as file:
+        file.writelines(txt_content)
+    
+    print("Title card and post content successfully edited!")
+
+    print('--------------------------------------------------------------------------')
+    print('Running node script for the post: ', new_text)
+    os.system(f'node imageScrape.js "{html_path.resolve()}"')
+    print('--------------------------------------------------------------------------\n')
+
+    # Round the image
+    image_path = selected_post_folder / "title_card.png"
+    image = Image.open(image_path)
+    image = add_rounded_corners_with_shadow(image, 15)  
+    image.save(selected_post_folder / "title_card.png")
+
 
 
 

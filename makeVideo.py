@@ -9,6 +9,8 @@ import random
 import numpy as np
 from whisper_transcription import transcribe_with_whisper
 
+
+
 def break_text_into_phrases(text, duration, max_words=6):
     words = text.split()
     phrases = []
@@ -37,7 +39,7 @@ def break_text_into_phrases(text, duration, max_words=6):
     # If there are any remaining words, add them to phrases
     if curr_words:
         phrases.append(' '.join(curr_words))
-
+    
     return phrases
 
 
@@ -53,6 +55,7 @@ def generate_captions_from_transcription(transcription_dict, max_words=6):
         phrase_duration = (end_time - start_time) / len(phrases)
 
         for idx, phrase in enumerate(phrases):
+            print(phrase)
             phrase_start_time = round(start_time + idx * phrase_duration, 3)
             phrase_end_time = round(phrase_start_time + phrase_duration, 3)
 
@@ -71,42 +74,37 @@ def generate_captions_from_transcription(transcription_dict, max_words=6):
 
 
 def overlay_captions_on_video(video, captions, seconds_to_add=0):
-    # Start from the beginning of the video
     last_end_time = 0
     segments = []
 
     for caption in captions:
-        # Append a portion of the video without captions
-        if last_end_time < caption.start:
-            if last_end_time < video.duration and caption.start < video.duration:
-                segments.append(video.subclip(last_end_time, min(caption.start, video.duration)))
+        if last_end_time < caption.start and last_end_time < video.duration:
+            segments.append(video.subclip(last_end_time, min(caption.start, video.duration)))
 
-        # Check if the start and end times are within the video's duration
         clip_start = min(caption.start, video.duration)
         clip_end = min(caption.end, video.duration)
         
-        # Append a portion of the video with the caption overlay
-        if clip_start < video.duration:
-            segments.append(CompositeVideoClip([
-                video.subclip(clip_start, clip_end),
-                caption.set_position(('center', 'bottom')).set_start(0)
-            ]))
+        if clip_start >= video.duration:
+            break
+
+        segments.append(CompositeVideoClip([
+            video.subclip(clip_start, clip_end),
+            caption.set_position(('center', 'bottom')).set_start(0)
+        ]))
 
         last_end_time = caption.end
 
-    if last_end_time > 99.65:
-        last_end_time = 99.64
-    
-    # Add the extra segment based on the seconds_to_add parameter
-    extended_end_time = min(last_end_time + seconds_to_add, video.duration)
-    if last_end_time < extended_end_time:
-        segments.append(video.subclip(last_end_time, extended_end_time))
+    last_end_time = min(last_end_time, video.duration, 99.65)
+    extended_end_time = last_end_time + seconds_to_add
 
-    # Concatenate all segments
+    if last_end_time < video.duration:
+        segment_end_time = min(extended_end_time, video.duration)
+        last_end_time = video.duration
+        if last_end_time < segment_end_time:
+            segments.append(video.subclip(last_end_time, segment_end_time))
+
     result = concatenate_videoclips(segments)
-
     return result
-
 
 
 
@@ -180,7 +178,7 @@ def concatenate_audio_clips_with_pause(folder_path, start_index=1):
     return concatenated_audio
 
 
-def make_video(selected_folder, total_duration):
+def make_video(selected_folder, total_duration, useCaptions):
     # Convert total_duration from string to float
     total_duration = float(total_duration)
     
@@ -259,18 +257,22 @@ def make_video(selected_folder, total_duration):
     audio_segment = video_without_title_for_remaining.audio
     audio_segment_filename = str(Path(selected_folder) / "staging_audio.mp3")  # Change to .mp3 since it's audio only
     audio_segment.write_audiofile(audio_segment_filename)
+    final_video = None
+    if useCaptions:
+        # OpenAi Whisper
+        print("Using OpenAI Whisper to get transcript.")
+        transcription = transcribe_with_whisper(audio_segment_filename)
+        print("Done. Generating subtitles...")
+        # Generate captions from the transcription
+        captions = generate_captions_from_transcription(transcription)
 
-    # OpenAi Whisper
-    print("Using OpenAI Whisper to get transcript.")
-    transcription = transcribe_with_whisper(audio_segment_filename)
-    print("Done. Generating subtitles...")
-    # Generate captions from the transcription
-    captions = generate_captions_from_transcription(transcription)
+        video_with_captions = overlay_captions_on_video(video_without_title_for_remaining, captions, seconds_to_add)
 
-    video_with_captions = overlay_captions_on_video(video_without_title_for_remaining, captions, seconds_to_add)
-
-    print("Merging videos")
-    final_video = concatenate_videoclips([video_with_title_for_first_audio, video_with_captions])
+        print("Merging videos")
+        final_video = concatenate_videoclips([video_with_title_for_first_audio, video_with_captions])
+    else:
+        print("Skipping captions. Merging videos.")
+        final_video = concatenate_videoclips([video_with_title_for_first_audio, video_without_title_for_remaining])
 
     print("Rendering! We're almost done!")
     # Save the video with captions
