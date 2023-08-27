@@ -10,7 +10,6 @@ import numpy as np
 from whisper_transcription import transcribe_with_whisper
 
 
-
 def break_text_into_phrases(text, duration, max_words=6):
     words = text.split()
     phrases = []
@@ -43,45 +42,34 @@ def break_text_into_phrases(text, duration, max_words=6):
     return phrases
 
 
-def generate_captions_from_transcription(post_content_file, audio_folder, video_duration, max_words=6):
-    with open(post_content_file, 'r') as f:
-        sentences = f.read().split('. ')
-    
-    # Exclude the first sentence
-    sentences = sentences[1:]
-    
+def generate_captions_from_transcription(transcription_dict, max_words=6):    
     captions = []
-    audio_files = sorted(Path(audio_folder).glob("*.mp3"), key=lambda x: int(x.stem.split('_')[0]))
-    
-    total_audio_duration = sum([AudioFileClip(str(audio_file)).duration for audio_file in audio_files])
-    duration_ratio = video_duration / total_audio_duration
-    
-    for idx, sentence in enumerate(sentences):
-        # Break the sentence into smaller phrases
-        phrases = break_text_into_phrases(sentence, max_words)
+    for segment in transcription_dict:
+        start_time = segment['start']
+        end_time = segment['end']
+        text = segment['text']
         
-        # Calculate the duration for each phrase
-        audio_duration = AudioFileClip(str(audio_files[idx])).duration * duration_ratio
-        phrase_duration = audio_duration / len(phrases)
-        
-        for i, phrase in enumerate(phrases):
+        # Break the text into smaller phrases
+        phrases = break_text_into_phrases(text, max_words)
+        phrase_duration = (end_time - start_time) / len(phrases)
+
+        for idx, phrase in enumerate(phrases):
             print(phrase)
-            # Calculate the start and end times for this phrase
-            start_time = idx * audio_duration + i * phrase_duration
-            end_time = start_time + phrase_duration
-            
+            phrase_start_time = round(start_time + idx * phrase_duration, 3)
+            phrase_end_time = round(phrase_start_time + phrase_duration, 3)
+
+
             text_clip = TextClip(phrase, fontsize=56, color='white', 
                                  size=(int(1080*9/16) - 200, 1080),
                                  font="Futura-PT-Bold", method='caption', 
                                  stroke_color='black', stroke_width=2, 
                                  align="center", kerning=-1, transparent=True)
             
-            # Set the start and end times for this text clip
-            text_clip = text_clip.set_start(start_time).set_end(end_time)
-            
+            text_clip = text_clip.set_pos(('center')).set_start(phrase_start_time).set_end(phrase_end_time)
             captions.append(text_clip)
-    
+
     return captions
+
 
 
 def overlay_captions_on_video(video, captions, seconds_to_add=0):
@@ -217,10 +205,12 @@ def make_video(selected_folder, total_duration, useCaptions):
     cropped_and_resized_video = crop_and_resize_video(subclip)
     print("Resized to 9:16 Aspect Ratio")
 
+
     # Concatenate audio clips with pauses
     audio_folder = Path(selected_folder) / "audio"
     concatenated_audio = concatenate_audio_clips_with_pause(audio_folder, start_index=2)
 
+    
     # Find the duration of the first audio clip
     first_audio_path = audio_folder / "1_sentence.mp3"
     first_audio_duration = AudioFileClip(str(first_audio_path)).duration
@@ -231,6 +221,8 @@ def make_video(selected_folder, total_duration, useCaptions):
     title_card = (ImageClip(str(title_card_path))
               .resize(0.78)  # Scale the image to 84% of its original size
               .set_duration(first_audio_duration))
+
+
 
     # Overlay the title card image on the video for the duration of the first audio clip
     video_with_title_for_first_audio = CompositeVideoClip([
@@ -251,8 +243,6 @@ def make_video(selected_folder, total_duration, useCaptions):
     if post_title_duration < min_duration:
         seconds_to_add = min_duration - post_title_duration
     
-    print("Adding " + str(seconds_to_add) + " to make up the minimum 1 minute mark.")
-
     video_without_title_for_remaining = (cropped_and_resized_video  
         .subclip(first_audio_duration, video_without_title_for_remaining_end_time + seconds_to_add)
         .set_audio(concatenated_audio))
@@ -260,13 +250,18 @@ def make_video(selected_folder, total_duration, useCaptions):
 
     print("Total duration of video so far " + str(video_without_title_for_remaining.duration))
 
+    # Save the video with that needs captions so we can transcribe
+    audio_segment = video_without_title_for_remaining.audio
+    audio_segment_filename = str(Path(selected_folder) / "staging_audio.mp3")  # Change to .mp3 since it's audio only
+    audio_segment.write_audiofile(audio_segment_filename)
     final_video = None
     if useCaptions:
-        # Generate captions from post_content.txt
-        print("Generating subtitles from post_content.txt...")
-        post_content_file = Path(selected_folder) / 'post_content.txt'
-        captions = generate_captions_from_transcription(post_content_file, audio_folder, video_without_title_for_remaining.duration)
-
+        # OpenAi Whisper
+        print("Using OpenAI Whisper to get transcript.")
+        transcription = transcribe_with_whisper(audio_segment_filename)
+        print("Done. Generating subtitles...")
+        # Generate captions from the transcription
+        captions = generate_captions_from_transcription(transcription)
 
         video_with_captions = overlay_captions_on_video(video_without_title_for_remaining, captions, seconds_to_add)
 
@@ -281,3 +276,5 @@ def make_video(selected_folder, total_duration, useCaptions):
     output_path = Path(selected_folder) / "final.mp4"
     # The tiktok speed
     final_video.write_videofile(str(output_path))
+
+
