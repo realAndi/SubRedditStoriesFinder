@@ -14,6 +14,7 @@ import eyed3
 from makeVideo import make_video
 import shutil
 from PIL import Image, ImageDraw, ImageFilter
+import re
 
 load_dotenv()
 useCaptions = True
@@ -352,6 +353,7 @@ def getPosts():
 
       # create a directory for the post
       post_title = post['title'][:32]  # Use the first 32 characters of the post title
+      post_title = re.sub(r'[\\/*?:"<>|]', "", post_title)  # Remove invalid characters
       post_title = post_title.replace(" ", "_")  # Replace spaces with underscores
       post_directory = subreddit_directory / f'{i}_{post_title}'
       post_directory.mkdir(parents=True, exist_ok=True)

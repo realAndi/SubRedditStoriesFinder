@@ -10,7 +10,6 @@ import numpy as np
 from whisper_transcription import transcribe_with_whisper
 
 
-
 def break_text_into_phrases(text, duration, max_words=6):
     words = text.split()
     phrases = []
@@ -244,8 +243,6 @@ def make_video(selected_folder, total_duration, useCaptions):
     if post_title_duration < min_duration:
         seconds_to_add = min_duration - post_title_duration
     
-    print("Adding " + str(seconds_to_add) + " to make up the minimum 1 minute mark.")
-
     video_without_title_for_remaining = (cropped_and_resized_video  
         .subclip(first_audio_duration, video_without_title_for_remaining_end_time + seconds_to_add)
         .set_audio(concatenated_audio))
