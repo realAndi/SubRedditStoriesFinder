@@ -8,67 +8,54 @@ from pathlib import Path
 import random
 import numpy as np
 from whisper_transcription import transcribe_with_whisper
+import json
+
+def generate_captions(json_filename, words_per_group=3):
+    with open(json_filename, 'r') as json_file:
+        marks = json.load(json_file)
+
+    sentences = [mark for mark in marks if mark['type'] == 'sentence']
+    words = [mark for mark in marks if mark['type'] == 'word']
+
+    text_clips = []
+    for sentence in sentences:
+        original_text = sentence['value']
+        sentence_words = [word for word in words if word['start'] >= sentence['start'] and word['end'] <= sentence['end']]
+        word_groups = [sentence_words[i:i+words_per_group] for i in range(0, len(sentence_words), words_per_group)]
+
+        for idx, group in enumerate(word_groups):
+            start_idx = group[0]['start'] - sentence['start']
+            end_idx = group[-1]['end'] - sentence['start'] + 1
+
+            # I know this is ghetto, I don't care.
+            if start_idx > 0 and original_text[start_idx-1] == '"':
+                start_idx -= 1
+            if end_idx < len(original_text) and original_text[end_idx] == '"':
+                end_idx += 1
+
+            phrase = original_text[start_idx:end_idx]
 
 
-def break_text_into_phrases(text, duration, max_words=6):
-    words = text.split()
-    phrases = []
-    word_timings = duration / len(words)
-    
-    # List of punctuation marks to account for
-    punctuation_breaks = [",", ";", ".", "!", "?", "-"]
-
-    curr_words = []
-    curr_time = 0
-
-    for word in words:
-        curr_time += word_timings
-        curr_words.append(word)
-        
-        # Check for punctuation breaks
-        if any(punct in word for punct in punctuation_breaks):
-            phrases.append(' '.join(curr_words))
-            curr_words = []
-            curr_time = 0
-        elif len(curr_words) == max_words or curr_time >= duration:
-            phrases.append(' '.join(curr_words))
-            curr_words = []
-            curr_time = 0
-
-    # If there are any remaining words, add them to phrases
-    if curr_words:
-        phrases.append(' '.join(curr_words))
-    
-    return phrases
-
-
-def generate_captions_from_transcription(transcription_dict, max_words=6):    
-    captions = []
-    for segment in transcription_dict:
-        start_time = segment['start']
-        end_time = segment['end']
-        text = segment['text']
-        
-        # Break the text into smaller phrases
-        phrases = break_text_into_phrases(text, max_words)
-        phrase_duration = (end_time - start_time) / len(phrases)
-
-        for idx, phrase in enumerate(phrases):
-            print(phrase)
-            phrase_start_time = round(start_time + idx * phrase_duration, 3)
-            phrase_end_time = round(phrase_start_time + phrase_duration, 3)
-
+            group_start_time = group[0]['time'] / 1000
+            if idx < len(word_groups) - 1:  # if not the last group
+                group_end_time = word_groups[idx + 1][0]['time'] / 1000 - 0.01  # start of the next group minus 10ms
+            else:  # for the last group
+                group_end_time = group[-1]['time'] / 1000 + 0.5  # last word's time plus half a second
 
             text_clip = TextClip(phrase, fontsize=56, color='white', 
-                                 size=(int(1080*9/16) - 200, 1080),
-                                 font="Futura-PT-Bold", method='caption', 
-                                 stroke_color='black', stroke_width=2, 
-                                 align="center", kerning=-1, transparent=True)
-            
-            text_clip = text_clip.set_pos(('center')).set_start(phrase_start_time).set_end(phrase_end_time)
-            captions.append(text_clip)
+                            size=(int(1080*9/16) - 200, 1080),
+                            font="Futura-PT-Bold", method='caption', 
+                            stroke_color='black', stroke_width=2, 
+                            align="center", kerning=-1, transparent=True)
 
-    return captions
+            text_clip = text_clip.set_pos(('center')).set_start(group_start_time).set_end(group_end_time)
+            text_clips.append(text_clip)
+
+    return text_clips
+
+
+
+
 
 
 
@@ -155,28 +142,6 @@ def download_video_if_not_exists(url, output_filename):
         print('You already have the video downloaded! Skipping this step!')
 
 
-def concatenate_audio_clips_with_pause(folder_path, start_index=1):
-    audio_files = sorted([file for file in folder_path.iterdir() if file.suffix == ".mp3"], 
-                         key=lambda x: int(x.stem.split('_')[0]))
-    
-    # Start from the specified index
-    audio_files = audio_files[start_index-1:]
-    
-    audio_clips = [AudioFileClip(str(audio_file)) for audio_file in audio_files]
-    
-    # Add pauses between the clips
-    pauses = [AudioClip(lambda t: 0, duration=0.4) for _ in range(len(audio_clips)-1)]
-    audio_sequence = [audio_clips[0]]
-
-    for i, pause in enumerate(pauses):
-        audio_sequence.append(pause)
-        audio_sequence.append(audio_clips[i+1])
-    
-    concatenated_audio = concatenate_audioclips(audio_sequence)
-    
-    return concatenated_audio
-
-
 def make_video(selected_folder, total_duration, useCaptions):
     # Convert total_duration from string to float
     total_duration = float(total_duration)
@@ -189,7 +154,7 @@ def make_video(selected_folder, total_duration, useCaptions):
     download_video_if_not_exists(video_url, video_filename)
     
     # Load the video using moviepy
-    video = VideoFileClip(str(assets_folder / "bbswitzer-parkour.mp4"))
+    video = VideoFileClip(str(assets_folder / "parkour2.mp4"))
     
     print("Video Loaded")
     # Calculate start time and end time for the subclip
@@ -208,13 +173,15 @@ def make_video(selected_folder, total_duration, useCaptions):
 
     # Concatenate audio clips with pauses
     audio_folder = Path(selected_folder) / "audio"
-    concatenated_audio = concatenate_audio_clips_with_pause(audio_folder, start_index=2)
-
     
     # Find the duration of the first audio clip
     first_audio_path = audio_folder / "1_sentence.mp3"
     first_audio_duration = AudioFileClip(str(first_audio_path)).duration
     first_audio_clip = AudioFileClip(str(first_audio_path))    
+
+    remaining_audio_path = audio_folder / "2_sentence.mp3"
+    remaining_audio_duration = AudioFileClip(str(remaining_audio_path)).duration
+    remaining_audio_clip = AudioFileClip(str(remaining_audio_path))    
 
     # Load title card image
     title_card_path = Path(selected_folder) / "title_card.png"
@@ -241,11 +208,11 @@ def make_video(selected_folder, total_duration, useCaptions):
     seconds_to_add = 0
     min_duration = 61
     if post_title_duration < min_duration:
-        seconds_to_add = min_duration - post_title_duration
+        seconds_to_add = min_duration - remaining_audio_duration
     
     video_without_title_for_remaining = (cropped_and_resized_video  
         .subclip(first_audio_duration, video_without_title_for_remaining_end_time + seconds_to_add)
-        .set_audio(concatenated_audio))
+        .set_audio(remaining_audio_clip))
     
 
     print("Total duration of video so far " + str(video_without_title_for_remaining.duration))
@@ -256,14 +223,19 @@ def make_video(selected_folder, total_duration, useCaptions):
     audio_segment.write_audiofile(audio_segment_filename)
     final_video = None
     if useCaptions:
-        # OpenAi Whisper
-        print("Using OpenAI Whisper to get transcript.")
-        transcription = transcribe_with_whisper(audio_segment_filename)
-        print("Done. Generating subtitles...")
-        # Generate captions from the transcription
-        captions = generate_captions_from_transcription(transcription)
+        # # OpenAi Whisper (Legacy code, ignore if you dont need it. )
+        # print("Using OpenAI Whisper to get transcript.")
+        # transcription = transcribe_with_whisper(audio_segment_filename)
+        # print("Done. Generating subtitles...")
+        # # Generate captions from the transcription
+        # captions = generate_captions_from_transcription(transcription)
 
+        captions = generate_captions(audio_folder / '2_mark.json')
         video_with_captions = overlay_captions_on_video(video_without_title_for_remaining, captions, seconds_to_add)
+
+
+
+
 
         print("Merging videos")
         final_video = concatenate_videoclips([video_with_title_for_first_audio, video_with_captions])

@@ -6,7 +6,7 @@ import subprocess
 from jinja2 import Template
 from pathlib import Path
 from dotenv import load_dotenv
-from grabAudio import get_streamelements_speech, get_amazon_polly_speech
+from grabAudio import get_amazon_polly_speech
 from selectDir import select_directory, select_audio_directory
 import nltk
 from nltk.tokenize import sent_tokenize
@@ -15,6 +15,7 @@ from makeVideo import make_video
 import shutil
 from PIL import Image, ImageDraw, ImageFilter
 import re
+import pathlib
 
 load_dotenv()
 useCaptions = True
@@ -399,16 +400,16 @@ def get_audio_duration(filename):
     return audio.info.time_secs
 
 def calculate_total_duration(audio_files):
-    # Calculate the sum of the duration of all audio clips
-    total_duration = sum([get_audio_duration(file) for file in audio_files])
+    total_duration = 0
+    for file in audio_files:
+        # Check if the file is a dictionary and has the 'audio_filename' key
+        if isinstance(file, dict) and 'audio_filename' in file:
+            total_duration += get_audio_duration(file['audio_filename'])
+        # Check if the file is a Path object (or string, depending on your implementation)
+        elif isinstance(file, (str, pathlib.Path)):
+            total_duration += get_audio_duration(file)
+    return total_duration
 
-    # Calculate the total gap duration: 
-    # (len(audio_files) - 1) for the number of gaps between clips
-    # 0.5 seconds per gap, plus the additional 1-second gap for the first audio
-    total_gaps_duration = (len(audio_files) - 1) * 0.5 + 1
-
-    # Return the total duration
-    return total_duration + total_gaps_duration
 
 def seconds_to_minutes(seconds):
     """
@@ -459,20 +460,37 @@ def audioGen():
     # Tokenize the content into sentences
     sentences = sent_tokenize(content)
     generated_audio_files = []
-    # Generate audio for each sentence and save
-    for idx, sentence in enumerate(sentences, 1):
-      # Use this if you have AWS CLI setup for a neural TTS
-      audio_filename = get_amazon_polly_speech(sentence, voice, audio_folder)
-      # Use this if you want the free standard TTS. It's good, but not the same as other typical reddit videos.
-      # audio_filename = get_streamelements_speech(sentence, voice, audio_folder)  
-    
-      # Move the audio file to the 'audio' directory and rename
-      new_filename = audio_folder / f"{idx}_sentence.mp3"
-      os.rename(audio_filename, new_filename)
-      generated_audio_files.append(new_filename)
-      print(f"Audio for sentence {idx} saved as: {new_filename}")
+
+    # Check if there are sentences in the content
+    if sentences:
+        # Process the first sentence
+        audio_filename, marks = get_amazon_polly_speech(sentences[0], voice, audio_folder)
+        new_filename = audio_folder / "1_sentence.mp3"
+        json_filename = audio_folder / "1_mark.json"
+        os.rename(audio_filename, new_filename)
+        os.rename(marks, json_filename)
+        generated_audio_files.append({
+            'audio_filename': new_filename,
+            'speech_marks': marks
+        })
+        print(f"Audio for the remaining text saved as: {new_filename} with {json_filename}")
+
+        # Process the rest of the sentences (if there are more than one)
+        if len(sentences) > 1:
+            remaining_text = ' '.join(sentences[1:])
+            audio_filename, marks = get_amazon_polly_speech(remaining_text, voice, audio_folder)
+            new_filename = audio_folder / "2_sentence.mp3"
+            json_filename = audio_folder / "2_mark.json"
+            os.rename(marks, json_filename)
+            os.rename(audio_filename, new_filename)
+            generated_audio_files.append({
+                'audio_filename': new_filename,
+                'speech_marks': marks
+            })
+            print(f"Audio for the remaining text saved as: {new_filename} with {json_filename}")
 
     print('Audio Files successfully made!')
+
     # After the loop, calculate and print the total duration
     total_duration = calculate_total_duration(generated_audio_files)
     formatted_duration = seconds_to_minutes(total_duration)
@@ -484,7 +502,6 @@ def makeVideo(useCaptions):
 
     audio_folder = selected_post_folder / "audio"
     audio_files = list(audio_folder.glob("*.mp3"))
-
     total_duration = calculate_total_duration(audio_files)
     formatted_duration = seconds_to_minutes(total_duration)
     print(f"Total duration of all audio clips (with gaps): {formatted_duration}")
