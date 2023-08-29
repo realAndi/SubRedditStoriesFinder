@@ -3,6 +3,7 @@ import os
 import re
 import time
 import boto3
+import json
 
 def sanitize_filename(text):
     # Remove invalid characters
@@ -10,32 +11,6 @@ def sanitize_filename(text):
     
     # Replace spaces with underscores and limit length
     return sanitized.replace(' ', '_')[:10]
-
-def get_streamelements_speech(text, voice, output_path):
-    BASE_URL = "https://api.streamelements.com/kappa/v2/speech"
-    params = {"voice": voice, "text": text}
-
-    MAX_RETRIES = 5  # You can adjust this number based on your needs
-    for _ in range(MAX_RETRIES):
-        try:
-            response = requests.get(BASE_URL, params=params)
-            response.raise_for_status()
-
-            safe_text = "".join(ch for ch in text[:10] if ch.isalnum())
-            audio_filename = os.path.join(output_path, f"{voice}_{safe_text}.mp3")
-
-            with open(audio_filename, 'wb') as audio_file:
-                audio_file.write(response.content)
-
-            return audio_filename
-
-        except requests.exceptions.HTTPError as e:
-            # Check if the error status code corresponds to "Too Many Requests"
-            if response.status_code == 429:
-                time.sleep(30)  # wait for 30 seconds before retrying
-            else:
-                raise e  # If it's a different HTTP error, raise it immediately
-    raise Exception("Max retries reached. Exiting.")
 
 def get_amazon_polly_speech(text, voice, output_path, engine='neural'):
     aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
@@ -47,18 +22,38 @@ def get_amazon_polly_speech(text, voice, output_path, engine='neural'):
         aws_access_key_id=aws_access_key_id,
         aws_secret_access_key=aws_secret_access_key
     )
-    
-    response = polly_client.synthesize_speech(
+
+    # First request for the audio data
+    audio_response = polly_client.synthesize_speech(
         Text=text,
         OutputFormat='mp3',
         VoiceId=voice,
         Engine=engine
     )
+
+    # Second request for the speech mark data
+    speech_mark_response = polly_client.synthesize_speech(
+        Text=text,
+        OutputFormat='json',
+        VoiceId=voice,
+        Engine=engine,
+        SpeechMarkTypes=["word", "sentence"]
+    )
     
     safe_text = sanitize_filename(text)
     audio_filename = os.path.join(output_path, f"{voice}_{safe_text}.mp3")
+    json_filename = os.path.join(output_path, f"{voice}_{safe_text}.json")  # JSON file name
 
+    # Save the audio file
     with open(audio_filename, 'wb') as audio_file:
-        audio_file.write(response['AudioStream'].read())
+        audio_file.write(audio_response['AudioStream'].read())
+        
+    # Convert raw speech mark data to list of JSON objects
+    raw_data = speech_mark_response['AudioStream'].read().decode()
+    marks = [json.loads(line) for line in raw_data.strip().split("\n")]
     
-    return audio_filename
+    # Save the list of JSON objects as a single JSON array
+    with open(json_filename, 'w') as json_file:
+        json.dump(marks, json_file)
+    
+    return audio_filename, json_filename
