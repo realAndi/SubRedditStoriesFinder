@@ -11,7 +11,7 @@ https://streamable.com/ultal6
     Node.js
     Reddit Account
     ffmpeg
-    AWS CLI (Optional if you want to use the Neural TTS, which sounds better)
+    AWS CLI for AWS Poly
 
 ### TODO:
 ```
@@ -19,6 +19,14 @@ https://streamable.com/ultal6
   Use AI to make post revisions and determine if to was written by a male or female.
   Different solution for title cards.
 ```
+
+## Disclaimer: AWS Poly Required for Text-to-Speech (TTS) and Captions
+
+Please note that the usage of AWS Poly is required for the Text-to-Speech (TTS) functionality and generating captions in this project. AWS Poly is a service provided by Amazon Web Services that converts text into lifelike speech.
+
+To use the TTS and captions features, you will need to have an AWS account and set up the AWS CLI (Command Line Interface) on your machine. Additionally, you will need to configure your AWS credentials and ensure that you have the necessary permissions to access the AWS Poly service.
+
+Please refer to the AWS documentation for more information on how to set up and configure AWS Poly for your project.
 
 # Installation
 
@@ -39,6 +47,7 @@ Install Playwright via npm (Node.js package manager).
 ```
  npm install playwright
 ```
+
 # Setup
 
     Create a new Reddit 'script' application from here. Note the client_id and client_secret.
@@ -80,3 +89,5 @@ After scraping the desired subreddit, run `main.py` again and select the 2nd opt
 ## Step 3
 
 After grabbing the necessary audio files, go ahead and run `main.py` and select the 3rd option. The 3rd option will by default download a minecraft parkour video (Thank you bbswitzer), and select a random segment to start from. It will as well crop the video for mobile devices, and attach captions. The process should take upto 3 minutes max.
+
+
